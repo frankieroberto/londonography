@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">     
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <title>Londonography by Frankie Roberto</title>
+    <script src="./javascripts/d3.js"></script>
+    <script src="./javascripts/leaflet.js"></script>
+    <script src="./javascripts/neighbourhoods-data.json"></script>
+    <script src="./javascripts/villages.json"></script>
+    <script src="./javascripts/village-names.json"></script>
+    <script type="text/javascript" src="http://maps.stamen.com/js/tile.stamen.js?v1.3.0"></script>    
+    <script src="https://maps.googleapis.com/maps/api/js?region=GB"></script>
+    <link rel="stylesheet" href="./javascripts/leaflet.css" />    
+  </head>
+  <body>
+
+    <div id="map"></div>
+    <div id="chart"></div>
+    <div id="current-area-name"></div>
+
+    <style>
+
+      body { margin: 0; padding: 0; }
+
+      * { box-sizing: border-box; }
+
+      #map { 
+        position: absolute; margin: 0;
+        height: 100%; width: 100%;
+      }
+
+
+      #current-area-name {
+        position: absolute;
+        top: 620px; left: 0;
+
+      }
+
+      .area { stroke: rgba(0,0,0,1); stroke-width: 1px; fill: rgb(0,0,0); }
+      .selected { fill: rgba(0,255,0,1); }
+
+
+
+    </style>    
+
+    <script>
+
+      var map = L.map('map').setView([51.505, -0.09], 14);
+
+
+      // terrain-lines
+      var layer = new L.StamenTileLayer("toner");
+
+      map.addLayer(layer);
+
+    </script>
+
+
+    <script>
+
+
+      var voronoi = d3.geom.voronoi().clipExtent([[51.2, -0.5],[51.7, 0.3]]);
+
+      var map_paths = voronoi(villages);
+
+      for (var i = map_paths.length - 1; i >= 0; i--) {
+
+        console.log(map_paths[i][0])
+        var polygon = L.polygon(map_paths[i], {className: 'area', fillOpacity: 0.2})
+
+        polygon.bindPopup(villages[i][2])
+        polygon.on('mouseover', highlightArea);
+        polygon.on('mouseout', resetArea);
+        polygon.addTo(map);
+
+
+
+        var centroid = get_polygon_centroid(map_paths[i]);
+
+        if (!isNaN(centroid[0])) {
+
+          L.marker(centroid, {opacity: 1}).addTo(map)
+
+        }
+
+      };
+
+      for (var i = villages.length - 1; i >= 0; i--) {
+
+        L.marker([villages[i][0],villages[i][1]], {opacity: 0.5, draggable: true}).addTo(map)
+
+      };
+
+
+      function highlightArea(event) {
+        event.target.setStyle({fillOpacity: 0});
+      }
+
+      function resetArea(event) {
+        event.target.setStyle({fillOpacity: 0.2});
+      }
+
+      var geocoded_villages = []
+
+
+      for (var i = village_names.length; i >= 0; i--) {
+      
+        var geocode = function() {
+
+          var j = i;
+
+          var httpRequest = new XMLHttpRequest();
+            httpRequest.onreadystatechange = function() {
+            
+            if (this.readyState == 4 && this.status == 200) {
+
+              var response = JSON.parse(this.responseText);
+
+              if (response.geonames.length > 0) {
+              console.log(j);
+
+                geocoded_villages.push([response.geonames[0].lat, response.geonames[0].lng, village_names[j][0]]);
+              }
+
+            }
+          };
+
+          httpRequest.open('GET', 'http://api.geonames.org/searchJSON?q=' + village_names[i] + ',UK&maxRows=1&username=frankieroberto');
+
+          httpRequest.send();
+        }
+
+        //geocode();
+
+      }
+
+      function get_polygon_centroid(pts) {
+         var twicearea=0,
+         x=0, y=0,
+         nPts = pts.length,
+         p1, p2, f;
+         for ( var i=0, j=nPts-1 ; i<nPts ; j=i++ ) {
+            p1 = pts[i]; p2 = pts[j];
+            f = p1[0]*p2[1] - p2[0]*p1[1];
+            twicearea += f;          
+            x += ( p1[0] + p2[0] ) * f;
+            y += ( p1[1] + p2[1] ) * f;
+         }
+         f = twicearea * 3;
+         return [x/f, y/f];
+      }
+
+
+    </script>    
+
+
+  </body>
+<html>
